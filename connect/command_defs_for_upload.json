@@ -1,0 +1,39 @@
+{
+  "definitions": {
+    "ping": {
+      "display_name": "1-ping",
+      "description": "A simple ping. The Gateway should contact the satellite to return a pong.",
+      "fields": []
+    },
+    "telemetry": {
+      "display_name": "2-start telemetry beacon",
+      "description": "Commands the spacecraft to beacon Health and Status Telemetry for 3 minutes. After executing this command, you can see the telemetry by navigating to the System Telemetry tab or the Analytics Page.",
+      "fields": []
+    },
+    "update_file_list": {
+      "display_name": "3-update file list",
+      "description": "Gets the latest list of downloadable files from the spacecraft.",
+      "fields": []
+    },
+    "uplink_file": {
+      "display_name": "4-uplink file",
+      "description": "Uplink a file from your computer to the spacecraft.",
+      "fields": [{ "name": "gateway_download_path", "type": "string" }]
+    },
+    "downlink_file": {
+      "display_name": "5-downlink file",
+      "description": "Downlink an image from the Spacecraft.",
+      "fields": [{ "name": "filename", "type": "string" }]
+    },
+    "connect": {
+      "display_name": "6-establish rf lock",
+      "description": "Points antennas and starts broadcasting carrier signal to establish RF lock with the spacecraft.",
+      "fields": []
+    },
+    "safemode": {
+      "display_name": "7-safemode command",
+      "description": "Commands the spacecraft into safemode for 3 minutes, shutting down telemetry and all non-essential systems.",
+      "fields": []
+    }
+  }
+}

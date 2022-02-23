@@ -41,6 +41,28 @@ $ npm run start
 ```
 4. You'll also see a log message showing that the example sat has sent Major Tom a copy of its command definitions. This will serve to automatically create the satellite in Major Tom if it doesn't exist yet, and set it up with the commands it recognizes.
 
+### Troubleshooting automatic satellite creation and file list updates
+##### __2.22.22__
+There seems to be an issue for Major Tom receiving both file list and command definition updates over a Gateway. Until these are sorted out, you can create your satellite and upload its command definitions manually. Follow these steps:
+
+* From any view, hover over the satellite icon in the left-hand nav. When the satellite slider opens, click the blue "+" button:
+
+![Empty Satellites Menu](assets/manual_create_s1.png "Step 1 to manually create a satellite in Major Tom")
+
+* In the input that appears, type in "JS Oddity" and press the "Add" button:
+
+![Satellite Creation](assets/manual_create_s2.png "Enter the satellite's name")
+
+* When you manually create a satellite, you'll be taken to its overview page. Click the "Settings" tab along the top, then click the blue "Upload command definitions" button. Select the file in this repository at `example-nodejs-gateway/connect/command_defs_for_upload.json` from its location on your computer.
+
+![Upload Commands](assets/manual_create_s3.png "Find upload command definitions button")
+
+* If all has gone well, you'll be taken to the satellite's "Command" tab, where you can see the commands are now available.
+
+You can also still see the gateway's ability to handle file downlink, even though we can't seem to get Major Tom to receive our file list updates right now. Send your satellite a command of the type `update_file_list`. Now look in the terminal window where your NodeJS Gateway is running: you'll see a blob of JSON that the Gateway has sent over the WebSocket. You can copy one of the file names (they all begin with `for_downlink/...`, make sure you get one that has a non-zero "size" property as well).
+
+Now in Major Tom, go to the satellite's Command tab and initiate a `downlink_file` command. You can paste the file name into the input field (make sure to include the `for_downlink/` part) and execute that to see the downlink work.
+
 ### Note on Major Tom Deployment Environments
 If you have Basic Authentication enabled on your deployment (usually true if you're accessing it over anything other than `app.majortom.cloud`), you'll need to enter those credentials in `example-nodejs-gateway/connect/connection.json` to connect.
 
@@ -49,7 +71,7 @@ Enter basicauth login credentials for your Major Tom deployment (if it’s activ
 If you are running the on-prem version of Major Tom, you'll need to include the field `"http": true` in `example-nodejs-gateway/connect/connection.json`, as we currently do not support https for on prem.
 
 ## What does this Demo do?
-Now that you've connected the gateway, it will automatically create a new satellite (as noted above) and load command definitions for it.
+Now that you've connected the gateway, it will automatically (or you will manually) create a new satellite (as noted above) and load command definitions for it.
 
 You can now issue those commands to the satellite through the connected Gateway, which accomplish a wide variety of simulated tasks. Open each command and read its description to understand what it does!
 
