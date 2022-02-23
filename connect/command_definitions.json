@@ -4,43 +4,98 @@
     "system": "JS Oddity",
     "definitions": {
       "ping": {
-        "display_name": "1-ping",
+        "display_name": "01-ping",
         "description": "A simple ping. The Gateway should contact the satellite to return a pong.",
         "fields": []
       },
       "telemetry": {
-        "display_name": "2-start telemetry beacon",
+        "display_name": "02-start telemetry beacon",
         "description": "Commands the spacecraft to beacon Health and Status Telemetry for 3 minutes. After executing this command, you can see the telemetry by navigating to the System Telemetry tab or the Analytics Page.",
         "fields": []
       },
       "update_file_list": {
-        "display_name": "3-update file list",
+        "display_name": "03-update file list",
         "description": "Gets the latest list of downloadable files from the spacecraft.",
         "fields": []
       },
       "uplink_file": {
-        "display_name": "4-uplink file",
+        "display_name": "04-uplink file",
         "description": "Uplink a file from your computer to the spacecraft.",
         "fields": [
-          { "name": "gateway_download_path", "type": "string" }
+          {
+            "name": "gateway_download_path",
+            "type": "string"
+          }
         ]
       },
       "downlink_file": {
-        "display_name": "5-downlink file",
+        "display_name": "05-downlink file",
         "description": "Downlink an image from the Spacecraft.",
         "fields": [
-          { "name": "filename", "type": "string" }
+          {
+            "name": "filename",
+            "type": "string"
+          }
         ]
       },
       "connect": {
-        "display_name": "6-establish rf lock",
+        "display_name": "06-establish rf lock",
         "description": "Points antennas and starts broadcasting carrier signal to establish RF lock with the spacecraft.",
         "fields": []
       },
       "safemode": {
-        "display_name": "7-safemode command",
+        "display_name": "07-safemode command",
         "description": "Commands the spacecraft into safemode for 3 minutes, shutting down telemetry and all non-essential systems.",
         "fields": []
+      },
+      "tune_radio": {
+        "display_name": "08-tune radio",
+        "description": "Adjust the frequency of the onboard radio",
+        "fields": [
+          {
+            "name": "frequency",
+            "type": "float"
+          }
+        ]
+      },
+      "adjust_refractor": {
+        "display_name": "09-adjust refractor",
+        "description": "Adjust the refractor angle",
+        "fields": [
+          {
+            "name": "angle",
+            "type": "number"
+          }
+        ]
+      },
+      "reset_refractor": {
+        "display_name": "10-reset refractor",
+        "description": "Reset the refractor angle to zero",
+        "fields": []
+      },
+      "power_cycle_camera": {
+        "display_name": "11-power camera",
+        "description": "Try switching the camera off then switching it back on again",
+        "fields": []
+      },
+      "stow_camera": {
+        "display_name": "12-stow camera",
+        "description": "Stow the onboard camera in its protective housing",
+        "fields": []
+      },
+      "obtain_image": {
+        "display_name": "13-capture image",
+        "description": "Capture an image with the onboard image capture system",
+        "fields": [
+          {
+            "name": "filename",
+            "type": "string"
+          },
+          {
+            "name": "aspect_ratio",
+            "type": "integer"
+          }
+        ]
       }
     }
   }

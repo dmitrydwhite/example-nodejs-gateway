@@ -28,7 +28,7 @@ if (!(connectionProps.gatewayToken && connectionProps.host)) {
 const majorTomConnection = newNodeGateway({
   ...connectionProps,
   commandCallback,
-  verbose: true,
+  // verbose: true,
 });
 majorTomConnection.connect();
 

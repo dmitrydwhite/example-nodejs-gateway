@@ -42,11 +42,11 @@ const generateImageProps = sps => {
   return sps;
 };
 
-const retrieveImageFile = () => {
+const retrieveImageFile = optionalFileName => {
   if (fetchTimeout) { clearTimeout(fetchTimeout); }
 
   const sp = generateImageProps(new URLSearchParams());
-  const newFilePath = path.join(__dirname, 'for_downlink', `${Date.now()}_${sp.get('date')}.jpg`);
+  const newFilePath = path.join(__dirname, 'for_downlink', optionalFileName || `${Date.now()}_${sp.get('date')}.jpg`);
   const createStream = fs.createWriteStream(newFilePath);
   const clientReq = https.get(`https://api.nasa.gov/planetary/earth/imagery?${sp.toString()}`, (res) => {
     res.on('data', chunk => {
@@ -60,7 +60,9 @@ const retrieveImageFile = () => {
       clearTimeout(fetchTimeout);
       createStream.end();
 
-      const existing = fs.readdirSync(path.join(__dirname, 'for_downlink')).sort();
+      const existing = optionalFileName
+        ? [optionalFileName, ...fs.readdirSync(path.join(__dirname, 'for_downlink')).filter(n => n !== optionalFileName)]
+        : fs.readdirSync(path.join(__dirname, 'for_downlink')).sort();
 
       while (existing.length > 16) {
         const filenameToUnlink = existing.shift();
@@ -84,32 +86,35 @@ const retrieveImageFile = () => {
 };
 
 // Internal helper functions
-const acknowledgeCommand = ({ id }) => {
+const acknowledgeCommand = ({ id, system }) => {
   process.send(JSON.stringify({
     type: 'command_update',
     command: {
       id,
+      system,
       state: 'acked_by_system',
     },
   }));
 };
 
-const completeCommand = ({ id, payload }) => {
+const completeCommand = ({ id, payload, system }) => {
   process.send(JSON.stringify({
     type: 'command_update',
     command: {
       id,
+      system,
       payload,
       state: 'completed',
     },
   }));
 };
 
-const failCommand = ({ id, errors }) => {
+const failCommand = ({ id, system, errors }) => {
   process.send(JSON.stringify({
     type: 'command_update',
     command: {
       id,
+      system,
       state: 'failed',
       errors: (Array.isArray(errors) ? errors: [errors]).map(e => e.toString()),
     },
@@ -118,7 +123,7 @@ const failCommand = ({ id, errors }) => {
 
 // Command functions
 const ping = ({ id }) => {
-  completeCommand({ id, payload: 'pong' });
+  completeCommand({ id, payload: 'pong', system: systemName });
 };
 
 const safemode = () => {
@@ -127,7 +132,7 @@ const safemode = () => {
 
 const telemetry = ({ id }) => {
   sendTelem = true;
-  completeCommand({ id, payload: 'telemetry started' });
+  completeCommand({ id, payload: 'telemetry started', system: systemName });
   setTimeout(() => {
     sendTelem = false;
   }, THREE_MINUTES);
@@ -164,9 +169,9 @@ const uplink_ended = ({ id }) => {
   const fileExists = fs.existsSync(path.join(__dirname, 'file_lib', `file_${id}`));
 
   if (fileExists) {
-    completeCommand({ id, payload: 'file verified' });
+    completeCommand({ id, payload: 'file verified', system: systemName });
   } else {
-    failCommand({ id, errors: new Error('Couldn\'t verify file transfer').toString() });
+    failCommand({ id, errors: new Error('Couldn\'t verify file transfer').toString(), system: systemName });
   }
 
   delete fileReceivers[id];
@@ -189,7 +194,7 @@ const update_file_list = ({ id, system }) => {
 
   fs.readdir(path.join(__dirname, 'for_downlink'), (errors, files) => {
     if (errors) {
-      failCommand({ id, errors });
+      failCommand({ id, errors, system: systemName });
     } else {
       const progress_1_label = 'Files for downlink accessed';
       const progress_1_max = files.length;
@@ -225,9 +230,9 @@ const update_file_list = ({ id, system }) => {
             files: filesWithStats.map(f => ({ name: f.fileName, size: f.size, timestamp: f.birthtimeMs })),
           }
         }));
-        completeCommand({ id, payload: 'File list update complete' });
+        completeCommand({ id, payload: 'File list update complete', system: systemName });
       }).catch(errors => {
-        failCommand({ id, errors });
+        failCommand({ id, errors, system: systemName });
       });
     }
   });
@@ -272,12 +277,97 @@ const downlink_file = ({ id, filename }) => {
   });
 };
 
+const tune_radio = ({ id, fields }) => {
+  process.send(JSON.stringify({
+    type: 'command_update',
+    command: { id, state: 'executing_on_system' },
+  }));
+
+  try {
+    const nextFreq = fields.find(f => f.name === 'frequency').value;
+
+    satelliteTelemetry.setSubsystem('radio', 'frequency', nextFreq);
+
+    completeCommand({ id, system: systemName });
+  } catch (err) {
+    failCommand({ id, errors: ['Onboard execution failed', err.toString()], system: systemName });
+  }
+};
+
+const adjust_refractor = ({ id, fields }) => {
+  process.send(JSON.stringify({
+    type: 'command_update',
+    command: { id, state: 'executing_on_system' },
+  }));
+
+  try {
+    const nextAngle = fields.find(f => f.name === 'angle').value;
+
+    satelliteTelemetry.setSubsystem('refractor', 'angle', nextAngle);
+
+    completeCommand({ id, payload: `Refractor angle set to ${nextAngle}`, system: systemName });
+  } catch (err) {
+    failCommand({ id, errors: ['Onboard execution failed', err.toString()], system: systemName });
+  }
+};
+
+const power_cycle_camera = ({ id }) => {
+  process.send(JSON.stringify({
+    type: 'command_update',
+    command: { id, state: 'executing_on_system' },
+  }));
+
+  satelliteTelemetry.setSubsystem('camera', 'power', 1);
+
+  completeCommand({ id, payload: 'Camera power cycle initiated', system: systemName });
+};
+
+const stow_camera = ({ id }) => {
+  process.send(JSON.stringify({
+    type: 'command_update',
+    command: { id, state: 'executing_on_system' },
+  }));
+
+  satelliteTelemetry.setSubsystem('camera', 'stowed', 1);
+
+  completeCommand({ id, payload: 'Camera stowed', system: systemName });
+};
+
+const obtain_image = ({ id, fields }) => {
+  try {
+    const { value: filename } = fields.find(f => f.name === 'filename');
+
+    console.log(filename);
+
+    retrieveImageFile(filename);
+    completeCommand({ id, payload: `Initiated image capture for ${filename}`, system: systemName });
+  } catch (err) {
+    failCommand({ id, errors: [err.toString()], system: systemName });
+  }
+};
+
+const reset_refractor = ({ id }) => {
+  try {
+    satelliteTelemetry.setSubsystem('refractor', 'angle', 0);
+    completeCommand({ id, payload: 'Refractor angle reset to zero', system: systemName });
+  } catch (err) {
+    failCommand({ id, errors: [err.toString()], system: systemName });
+  }
+};
+
 const satCommands = {
   ping,
   update_file_list,
   downlink_file,
   safemode,
   telemetry,
+  // New commands for sequence demo:
+  tune_radio,
+  adjust_refractor,
+  power_cycle_camera,
+  stow_camera,
+  obtain_image,
+  reset_refractor,
 };
 
 const intermediateCommands = {

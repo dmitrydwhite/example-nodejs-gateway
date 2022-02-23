@@ -1,4 +1,5 @@
 {
-  "gatewayToken": "",
-  "host": "app.majortom.cloud"
+  "gatewayToken": "d4639e90b372a5845adbfaea9d8f72192611ca0fc5aad15738cd2e2f7c985392",
+  "host": "app.majortom.cloud",
+  "http": true
 }

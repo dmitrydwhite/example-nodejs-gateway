@@ -40,13 +40,14 @@ const gatewayControl = new EventEmitter();
  * @returns
  */
 const passCommandToSat = (gatewayControl, satellite) => command => {
-  const { id } = command;
+  const { id, system } = command;
 
   // Change the command state to "uplinking"
   gatewayControl.emit(UPDATE_EVENT, {
     type: 'command_update',
     command: {
       id,
+      system,
       state: 'uplinking_to_system',
     },
   });
@@ -57,6 +58,7 @@ const passCommandToSat = (gatewayControl, satellite) => command => {
     type: 'command_update',
     command: {
       id: command.id,
+      system,
       state: 'transmitted_to_system',
     },
   });
@@ -68,13 +70,14 @@ const passCommandToSat = (gatewayControl, satellite) => command => {
  * we can handle all of the intermediate eventing within that asynchronous function, and report the
  * task's ultimate success or failure through the Promise's resolve and reject hooks. This is also
  * a rudimentary emulation of a gateway controlling multiple components of the system: in this
- * command we are not only sending data to the satellite, but also comma
+ * command we are not only sending data to the satellite, but also commanding the ground station
+ * antenna.
  * @param {EventEmitter} gatewayControl A reference to the main gateway event bus
  * @param {ChildProcess} satellite A reference to the gateway's satellite connection
  * @returns
  */
 const connect = (gatewayControl, satellite) => command => {
-  const { id } = command;
+  const { id, system } = command;
 
   // Each of our satellite- and antenna-related tasks are Promises that wrap the event-based nature
   // of asynchronous JavaScript into an easily-consumed package. Those Promises may also take
@@ -85,6 +88,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'preparing_on_gateway',
         progress_1_current: percent,
         progress_1_max: 100,
@@ -99,6 +103,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'preparing_on_gateway',
         progress_2_current: completed,
         progress_2_max: completed + remaining,
@@ -112,6 +117,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'preparing_on_gateway',
         progress_1_current,
         progress_1_max: 100,
@@ -126,6 +132,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state,
         progress_1_current,
         progress_1_max,
@@ -138,6 +145,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         status,
         state: 'processing_on_gateway',
       },
@@ -163,6 +171,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'completed',
         payload: `Checksum: ${checksum}`,
       },
@@ -172,6 +181,7 @@ const connect = (gatewayControl, satellite) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'failed',
         errors: [err.toString()],
       },
@@ -188,7 +198,7 @@ const connect = (gatewayControl, satellite) => command => {
  * @returns
  */
 const uplink_file = (gatewayControl, satellite, majorTom) => command => {
-  const { id, fields = [] } = command;
+  const { id, system, fields = [] } = command;
   const gateway_download_path = (fields.find(f => f.name === 'gateway_download_path') || {}).value;
   let chunksSent = 0;
   // This stream is the "destination" for our download from Major Tom. Each piece of the downloaded
@@ -201,6 +211,7 @@ const uplink_file = (gatewayControl, satellite, majorTom) => command => {
         type: 'command_update',
         command: {
           id,
+          system,
           state: 'uplinking_to_system',
           progress_1_current: chunksSent,
           progress_1_max: Math.max(10, chunksSent + 2),
@@ -216,6 +227,7 @@ const uplink_file = (gatewayControl, satellite, majorTom) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'failed',
         errors: ['uplink_file failed because the value for gateway_download_path was not provided'],
       },
@@ -229,6 +241,7 @@ const uplink_file = (gatewayControl, satellite, majorTom) => command => {
     type: 'command_update',
     command: {
       id,
+      system,
       state: 'uplinking_to_system',
       progress_1_current: 0,
       progress_1_max: 10,
@@ -245,6 +258,7 @@ const uplink_file = (gatewayControl, satellite, majorTom) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'transmitted_to_system',
       },
     });
@@ -253,7 +267,6 @@ const uplink_file = (gatewayControl, satellite, majorTom) => command => {
 
 /**
  * The implementation for downlinking a file from the satellite and then uploading it to Major Tom.
- *
  * @param {EventEmitter} gatewayControl Interaction with gateway events
  * @param {*} satellite The satellite connection
  * @param {*} majorTom The connection to the Major Tom gateway library
@@ -284,7 +297,7 @@ const downlink_file = (gatewayControl, satellite, majorTom) => command => {
 
       gatewayControl.emit(UPDATE_EVENT, {
         type: 'command_update',
-        command: { id, state, progress_1_current, progress_1_max, progress_1_label },
+        command: { id, system, state, progress_1_current, progress_1_max, progress_1_label },
       });
     }
 
@@ -299,7 +312,7 @@ const downlink_file = (gatewayControl, satellite, majorTom) => command => {
 
         gatewayControl.emit(UPDATE_EVENT, {
           type: 'command_update',
-          command: { id, state, progress_1_current, progress_1_max, progress_1_label },
+          command: { id, system, state, progress_1_current, progress_1_max, progress_1_label },
         });
       }
 
@@ -309,6 +322,7 @@ const downlink_file = (gatewayControl, satellite, majorTom) => command => {
         type: 'command_update',
         command: {
           id,
+          system,
           state: 'processing_on_gateway',
           status: 'Uploading file to Major Tom over REST',
         },
@@ -338,6 +352,7 @@ const downlink_file = (gatewayControl, satellite, majorTom) => command => {
       type: 'command_update',
       command: {
         id,
+        system,
         state: 'failed',
         errors: ['No value received for field filename in downlink_file command'],
       },
@@ -367,6 +382,12 @@ const runGateway = (mtCx, satCx) => {
       case 'telemetry':
       case 'update_file_list':
       case 'safemode':
+      case 'tune_radio':
+      case 'adjust_refractor':
+      case 'power_cycle_camera':
+      case 'stow_camera':
+      case 'obtain_image':
+      case 'reset_refractor':
         // So we made a single function that just passes the command along
         passCommandToSat(gatewayControl, satCx, mtCx)(command);
         break;

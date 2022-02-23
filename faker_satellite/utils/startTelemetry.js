@@ -14,6 +14,83 @@ const startTelemetry = ({ sendFn, dest, systemName }) => {
         min: 5,
       },
     },
+    camera: (() => {
+      let power = 1;
+      let stowed = 1;
+
+      const powerCycleCamera = () => new Promise(resolve => {
+        power = 0;
+        setTimeout(() => {
+          power = 1;
+          dest.send(JSON.stringify({
+            type: 'event',
+            event: {
+              type: 'cameraEvent',
+              message: 'Camera power cycle detected',
+              debug_json: JSON.stringify({
+                cameraPower: power ? 'on' : 'off',
+              }),
+            },
+          }));
+          resolve();
+        }, 5000);
+      });
+
+      const stowCamera = stow => {
+        stowed = !!stow ? 1 : 0;
+      };
+
+      return {
+        power: {
+          value: power,
+          setFn: powerCycleCamera,
+        },
+        stowed: {
+          value: stowed,
+          setFn: stowCamera,
+        },
+      };
+    })(),
+    refractor: (() => {
+      let angle = 0;
+      const setAngle = next => {
+        if (Number.isFinite(next)) {
+          angle = next;
+        } else {
+          throw new Error(`Cannot set refractor angle to ${typeof next}: ${next}`);
+        }
+      };
+
+      return {
+        angle: {
+          value: angle,
+          setFn: setAngle,
+        },
+      };
+    })(),
+    radio: (() => {
+      let frequency = 0;
+      let powerState = 0;
+
+      const setFrequency = freq => {
+        frequency = freq;
+      };
+
+      const setPower = on => {
+        powerState = !!on ? 1 : 0;
+      };
+
+      return {
+        frequency: {
+          value: frequency,
+          setFn: setFrequency,
+        },
+        power: {
+          value: powerState,
+          setFn: setPower,
+        },
+      };
+    })(),
     panels: {
       temperature_x: {
         value: 25,
@@ -40,8 +117,10 @@ const startTelemetry = ({ sendFn, dest, systemName }) => {
     const measurements = [];
 
     Object.entries(telemetry).forEach(([subsystem, metricObj]) => {
-      Object.entries(metricObj).forEach(([metric, { step, max, min, value }]) => {
-        if (value >= max) {
+      Object.entries(metricObj).forEach(([metric, { step, max, min, value, setFn }]) => {
+        if (setFn) {
+          // Do not change value
+        } else if (value >= max) {
           telemetry[subsystem][metric].value = value - step;
         } else if (value <= min) {
           telemetry[subsystem][metric].value = value + step;
@@ -76,9 +155,26 @@ const startTelemetry = ({ sendFn, dest, systemName }) => {
     }, 1000 * 60 * 3);
   };
 
+  const setSubsystem = (subsystem, metric, value) => {
+    const toSet = telemetry[subsystem] && telemetry[subsystem][metric];
+    const { setFn } = toSet;
+
+    if (!setFn) {
+      return dest.send(JSON.stringify({
+        type: 'event',
+        event: {
+          type: 'Subystem Error',
+          message: `Cannot manually change ${subsystem} ${metric}`,
+        },
+      }));
+    }
+
+    return setFn(value);
+  };
+
   let telemInterval = setInterval(generate, 1000);
 
-  return { safe };
+  return { safe, setSubsystem };
 };
 
 module.exports = startTelemetry;
